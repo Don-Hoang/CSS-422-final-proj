@@ -75,31 +75,23 @@ void *_ralloc(int size, int left, int right)
   int heap = 0;
   int heapSize = addrSpace * 16;
   int halfHeap = halfAddrSpace * 16;
-  if (size <= halfHeap)
-  {
+  if (size <= halfHeap) {
     void *heap = _ralloc(size, left, addrMid - mcb_ent_sz);
-    if (heap == 0)
-    {
+    if (heap == 0) {
       return _ralloc(size, addrMid, right);
     }
     if ((array[m2a(addrMid)] & 0x01) == 0)
       *(short *)&array[m2a(addrMid)] =
           halfHeap;
     return heap;
-  }
-  else
-  {
-    if ((array[m2a(left)] & 0x01) != 0)
-    {
+  } else {
+    if ((array[m2a(left)] & 0x01) != 0) {
       return 0;
-    }
-    else
-    {
-      if (*(short *)&array[m2a(left)] <
-          heapSize)
+    } else {
+      if (*(short *)&array[m2a(left)] < heapSize) {
         return 0;
-      *(short *)&array[m2a(left)] = heapSize |
-                                    0x01;
+      }
+      *(short *)&array[m2a(left)] = heapSize | 0x01;
       return (void *)(heap_top + (left - mcb_top) * 16);
     }
   }
@@ -121,18 +113,14 @@ int _rfree(int mcb_addr)
   int disp = (data /= 16);
   int size = (data *= 16);
   *(short *)&array[m2a(mcb_addr)] = data;
-  if ((index / disp) % 2 == 0)
-  {
-    if (mcb_addr + disp >= mcb_bot)
+  if ((index / disp) % 2 == 0) {
+    if (mcb_addr + disp >= mcb_bot) {
       return 0;
-    else
-    {
+    } else {
       short mcb_buddy = *(short *)&array[m2a(mcb_addr + disp)];
-      if ((mcb_buddy & 0x0001) == 0)
-      {
+      if ((mcb_buddy & 0x0001) == 0) {
         mcb_buddy = (mcb_buddy / 32) * 32;
-        if (mcb_buddy == size)
-        {
+        if (mcb_buddy == size) {
           *(short *)&array[m2a(mcb_addr + disp)] = 0;
           size *= 2;
           *(short *)&array[m2a(mcb_addr)] = size;
@@ -140,19 +128,14 @@ int _rfree(int mcb_addr)
         }
       }
     }
-  }
-  else
-  {
-    if (mcb_addr - disp < mcb_top)
+  } else {
+    if (mcb_addr - disp < mcb_top) {
       return 0;
-    else
-    {
+    } else {
       short mcb_buddy = *(short *)&array[m2a(mcb_addr - disp)];
-      if ((mcb_buddy & 0x0001) == 0)
-      {
+      if ((mcb_buddy & 0x0001) == 0) {
         mcb_buddy = (mcb_buddy / 32) * 32;
-        if (mcb_buddy == size)
-        {
+        if (mcb_buddy == size) {
           *(short *)&array[m2a(mcb_addr)] = 0;
           size *= 2;
           *(short *)&array[m2a(mcb_addr - disp)] =
