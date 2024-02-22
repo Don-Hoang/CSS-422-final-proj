@@ -67,10 +67,43 @@ void printArray( ) {
                 cast to 'void *' from smaller integer type 'int'
  *         Simply ignore it.
  */
-void *_ralloc( int size, int left, int right ) {
-	printf( "_ralloc: size=%d, left=%x, right=%x\n", size, left, right );
-
-  return NULL;
+void *_ralloc(int size, int left, int right)
+{
+  int addrSpace = right - left + mcb_ent_sz;
+  int halfAddrSpace = addrSpace / 2;
+  int addrMid = left + halfAddrSpace;
+  int heap = 0;
+  int heapSize = addrSpace * 16;
+  int halfHeap = halfAddrSpace * 16;
+  if (size <= halfHeap)
+  {
+    void *heap = _ralloc(size, left, addrMid - mcb_ent_sz);
+    if (heap == 0)
+    {
+      return _ralloc(size, addrMid, right);
+    }
+    if ((array[m2a(addrMid)] & 0x01) == 0)
+      *(short *)&array[m2a(addrMid)] =
+          halfHeap;
+    return heap;
+  }
+  else
+  {
+    if ((array[m2a(left)] & 0x01) != 0)
+    {
+      return 0;
+    }
+    else
+    {
+      if (*(short *)&array[m2a(left)] <
+          heapSize)
+        return 0;
+      *(short *)&array[m2a(left)] = heapSize |
+                                    0x01;
+      return (void *)(heap_top + (left - mcb_top) * 16);
+    }
+  }
+  return 0;
 }
 
 /*
@@ -81,10 +114,54 @@ void *_ralloc( int size, int left, int right ) {
  * @param  mcb_addr that corresponds to a SRAM space to deallocate
  * @return the same as the mcb_addr argument in success, otherwise 0.
  */
-int _rfree( int mcb_addr ) {
-   printf( "_rfree: mcb[%x] = %x\n",
-  	  mcb_addr, *(short *)&array[ m2a( mcb_addr ) ] )
-  
+int _rfree(int mcb_addr)
+{
+  short data = *(short *)&array[m2a(mcb_addr)];
+  int index = mcb_addr - mcb_top;
+  int disp = (data /= 16);
+  int size = (data *= 16);
+  *(short *)&array[m2a(mcb_addr)] = data;
+  if ((index / disp) % 2 == 0)
+  {
+    if (mcb_addr + disp >= mcb_bot)
+      return 0;
+    else
+    {
+      short mcb_buddy = *(short *)&array[m2a(mcb_addr + disp)];
+      if ((mcb_buddy & 0x0001) == 0)
+      {
+        mcb_buddy = (mcb_buddy / 32) * 32;
+        if (mcb_buddy == size)
+        {
+          *(short *)&array[m2a(mcb_addr + disp)] = 0;
+          size *= 2;
+          *(short *)&array[m2a(mcb_addr)] = size;
+          return _rfree(mcb_addr);
+        }
+      }
+    }
+  }
+  else
+  {
+    if (mcb_addr - disp < mcb_top)
+      return 0;
+    else
+    {
+      short mcb_buddy = *(short *)&array[m2a(mcb_addr - disp)];
+      if ((mcb_buddy & 0x0001) == 0)
+      {
+        mcb_buddy = (mcb_buddy / 32) * 32;
+        if (mcb_buddy == size)
+        {
+          *(short *)&array[m2a(mcb_addr)] = 0;
+          size *= 2;
+          *(short *)&array[m2a(mcb_addr - disp)] =
+              size;
+          return _rfree(mcb_addr - disp);
+        }
+      }
+    }
+  }
   return mcb_addr;
 }
 
